@@ -28,7 +28,7 @@ class Tree:
 output = []
 
 tokens = (
-		'MAIN', 'VOID', 'TYPE', 'LPAREN', 'RPAREN', 'LFLOWER', 'RFLOWER', 'SEMI_COLON', 'COMMA', 'NAME', 'STAR', 'EQUAL', 'AND', 'NUMBER', 'COMMENT', 'PLUS', 'MINUS', 'DIVIDE', 'IF', 'ELSE', 'WHILE', 'NOT_EQUAL', 'DOUBLE_EQUAL', 'GTHAN', 'LTHAN', 'GTHAN_EQUAL', 'LTHAN_EQUAL'
+		'MAIN', 'VOID', 'TYPE', 'LPAREN', 'RPAREN', 'LFLOWER', 'RFLOWER', 'SEMI_COLON', 'COMMA', 'NAME', 'STAR', 'EQUAL', 'AND', 'NUMBER', 'COMMENT', 'PLUS', 'MINUS', 'DIVIDE', 'IF', 'ELSE', 'WHILE', 'NOT_EQUAL', 'DOUBLE_EQUAL', 'GTHAN', 'LTHAN', 'GTHAN_EQUAL', 'LTHAN_EQUAL', 'COND_AND', 'COND_OR', 'ELSE_IF'
 )
 
 t_ignore = " \t\n"
@@ -55,7 +55,10 @@ t_GTHAN = r'<'
 t_LTHAN = r'>'
 
 t_EQUAL = r'='
+t_COND_AND = r'&&'
+t_COND_OR = r'\|\|'
 t_AND = r'&'
+t_ELSE_IF = r'else\s+if' 
 
 def t_COMMENT(t):
 	r'(//)[^\n\r]*[\n\r]'
@@ -70,11 +73,15 @@ def t_NAME(t):
 	elif t.value == 'if':
 		t.type = 'IF'
 	elif t.value == 'else':
-		t.type = 'ELSE'	
+		t.type = 'ELSE'
 	elif t.value == 'while':
 		t.type = 'WHILE'
 	elif t.value == 'main':
 		t.type = 'MAIN'
+	elif t.value == 'and':
+		t.type = 'COND_AND'
+	elif t.value == 'or':
+		t.type = 'COND_OR'
 	return t
 
 def t_NUMBER(t):
@@ -94,7 +101,8 @@ precedence = (
 		('left', 'PLUS', 'MINUS'),
 		('left', 'STAR', 'DIVIDE'),
 		('right', 'UMINUS'),
-		('right', 'STAR_POINTER', 'AND_POINTER')
+		('right', 'STAR_POINTER', 'AND_POINTER'),
+		('right', 'IF', 'ELSE')
 )
 
 
@@ -114,31 +122,48 @@ def p_while_section(p):
 
 def p_if_else_section(p):
 	"""
-	if_else_section : if_section
-					| if_section elif_section else_section
-					| if_section else_section 
+	if_else_section : if_section elif_section else_section
+					| if_section else_section
+					| if_section
 	"""
+	if p[1] == None:
+		print("if")
+	elif p[2] == None:
+		print("else")
+	elif p[3] == None:
+		print("elif")
 
 def p_util(p):
 	"""
-	util : LPAREN conditional RPAREN LFLOWER code RFLOWER
-		 | LPAREN conditional RPAREN line
+	util : LPAREN complex_conditional RPAREN LFLOWER code RFLOWER
+		 | LPAREN complex_conditional RPAREN line
 	"""
 
 def p_if_section(p):
 	"""
 	if_section : IF util
 	"""
+	print("if section")
 
 def p_elif_section(p):
 	"""
-	elif_section : ELSE IF util elif_section
-				 | ELSE IF util
+	elif_section : ELSE_IF util elif_section
+				 | ELSE_IF util
 	"""
+	print("else if section")
 
 def p_else_section(p):
 	"""
-	else_section : ELSE util
+	else_section : ELSE LFLOWER code RFLOWER
+				 | ELSE line
+	"""
+	print("else section")
+
+def p_complex_conditional(p):
+	"""
+	complex_conditional : conditional COND_AND complex_conditional
+					    | conditional COND_OR complex_conditional
+					    | conditional
 	"""
 
 def p_conditional(p):
@@ -446,7 +471,9 @@ if __name__ == "__main__":
 	for i in range(assignments):
 		output.append([])
 
-	print(error)
+	if error == 0:
+		print("Successfully parsed!")
+		print("Checkout output.txt")
 	process(lines)
 	k = 0
 	for i in output:
