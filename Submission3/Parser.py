@@ -188,9 +188,9 @@ def p_assgn(p):
 	assgn : pointer EQUAL expression
 		  | name EQUAL not_number_expression
 	"""
+	global assignments
+	global no_done
 	if one_time == 1 and no_done < len(output):
-		global output
-		global no_done
 		if p[1] is not None:
 			output[no_done].append(p[1])
 		if p[3] is not None:
@@ -198,7 +198,6 @@ def p_assgn(p):
 		output[no_done].append(p[2])
 		no_done = no_done+1
 	else:
-		global assignments
 		assignments = assignments+1
 
 def p_name(p):
@@ -206,8 +205,6 @@ def p_name(p):
 	name : NAME
 	"""
 	if one_time == 1 and no_done < len(output):
-		global output
-		global no_done
 		output[no_done].append(p[1])
 
 def p_not_number_expression(p):
@@ -226,7 +223,6 @@ def p_not_number_expression(p):
 						  | not_number_expression DIVIDE not_number_expression
 	"""
 	if one_time == 1 and no_done < len(output):
-		global output
 		output[no_done].append(p[2])
 
 def p_not_number_expression_basic(p):
@@ -235,9 +231,9 @@ def p_not_number_expression_basic(p):
 						  | and
 						  | pointer
 	"""
+	global output
 	if one_time == 1 and no_done < len(output):
 		if p[1] is not None:
-			global output
 			output[no_done].append(p[1])
 
 def p_not_number_expression_group(p):
@@ -247,8 +243,8 @@ def p_not_number_expression_group(p):
 
 def p_not_number_expression_uminus(p):
 	'not_number_expression : MINUS not_number_expression %prec UMINUS'
+	global output
 	if one_time == 1 and no_done < len(output):
-		global output
 		output[no_done].append("u"+p[1])
 
 
@@ -259,8 +255,8 @@ def p_number_expression(p):
 					  | number_expression STAR number_expression
 					  | number_expression DIVIDE number_expression
 	"""
+	global output
 	if one_time == 1 and no_done < len(output):
-		global output
 		output[no_done].append(p[2])
 
 def p_number_expression_group(p):
@@ -272,9 +268,8 @@ def p_number_expression_uminus(p):
 	"""
 	number_expression : MINUS number_expression %prec UMINUS
 	"""
+	global output
 	if one_time == 1 and no_done < len(output):
-		global output
-		# print("u"+p[1])
 		output[no_done].append("u"+p[1])
 
 def p_number_expression_basic(p):
@@ -292,8 +287,8 @@ def p_expression_advanced(p):
 			   | expression STAR expression
 			   | expression DIVIDE expression
 	"""
+	global output
 	if one_time == 1 and no_done < len(output):
-		global output
 		output[no_done].append(p[2])
 
 def p_expression_group(p):
@@ -301,8 +296,8 @@ def p_expression_group(p):
 
 def p_expression_uminus(p):
 	'expression : MINUS expression %prec UMINUS'
+	global output
 	if one_time == 1 and no_done < len(output):
-		global output
 		# print("u"+p[1])
 		output[no_done].append("u"+p[1])
 
@@ -313,9 +308,9 @@ def p_expression_basic(p):
 			   | pointer
 			   | and
 	"""
+	global output
 	if one_time == 1 and no_done < len(output):
 		if p[1] is not None:
-			global output
 			output[no_done].append(p[1])
 def p_pointer(p):
 	"""
@@ -323,13 +318,12 @@ def p_pointer(p):
 			| STAR and %prec STAR_POINTER
 			| STAR NAME %prec STAR_POINTER
 	"""
+	global output
 	if one_time == 1 and no_done < len(output):
 		if p[2] is not None:
-			global output
 			output[no_done].append(p[2])
 			output[no_done].append("p"+p[1])
 		else:
-			# print("p"+p[1])
 			output[no_done].append("p"+p[1])
 
 def p_and(p):
@@ -338,8 +332,8 @@ def p_and(p):
 		| AND NAME %prec AND_POINTER
 		| AND pointer %prec AND_POINTER
 	"""
+	global output
 	if one_time == 1 and no_done < len(output):
-		global output
 		if p[2] is not None:
 			output[no_done].append(p[2])
 			output[no_done].append("a"+p[1])
@@ -354,13 +348,12 @@ def p_pointer_other(p):
 	"""
 	
 def p_error(p):
+	global error
 	if p:
 		print("syntax error at {0}".format(p.value))
-		global error
 		error = 1
 	else:
 		print("syntax error at EOF")
-		global error
 		error = 1
 
 def add_to_tree(tree, output, depth):
@@ -453,7 +446,6 @@ if __name__ == "__main__":
 	for i in range(assignments):
 		output.append([])
 
-	global error
 	print(error)
 	process(lines)
 	k = 0
@@ -465,7 +457,6 @@ if __name__ == "__main__":
 			output_to_file += '\n'
 		k += 1
 
-	global output_to_file
 	print(output_to_file, file=open("output.txt", "w"))
 
 
