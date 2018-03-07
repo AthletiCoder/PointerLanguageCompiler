@@ -28,7 +28,7 @@ class Tree:
 output = []
 
 tokens = (
-		'MAIN', 'VOID', 'TYPE', 'LPAREN', 'RPAREN', 'LFLOWER', 'RFLOWER', 'SEMI_COLON', 'COMMA', 'NAME', 'STAR', 'EQUAL', 'AND', 'NUMBER', 'COMMENT', 'PLUS', 'MINUS', 'DIVIDE', 'IF', 'ELSE', 'WHILE', 'NOT_EQUAL', 'DOUBLE_EQUAL', 'GTHAN', 'LTHAN', 'GTHAN_EQUAL', 'LTHAN_EQUAL', 'COND_AND', 'COND_OR', 'ELSE_IF'
+		'MAIN', 'VOID', 'TYPE', 'LPAREN', 'RPAREN', 'LFLOWER', 'RFLOWER', 'SEMI_COLON', 'COMMA', 'NAME', 'STAR', 'EQUAL', 'AND', 'NUMBER', 'COMMENT', 'PLUS', 'MINUS', 'DIVIDE', 'IF', 'ELSE', 'WHILE', 'NOT_EQUAL', 'DOUBLE_EQUAL', 'GTHAN', 'LTHAN', 'GTHAN_EQUAL', 'LTHAN_EQUAL', 'COND_AND', 'COND_OR'
 )
 
 t_ignore = " \t\n"
@@ -58,7 +58,7 @@ t_EQUAL = r'='
 t_COND_AND = r'&&'
 t_COND_OR = r'\|\|'
 t_AND = r'&'
-t_ELSE_IF = r'else\s+if' 
+# t_ELSE_IF = r'else\s+if' 
 
 def t_COMMENT(t):
 	r'(//)[^\n\r]*[\n\r]'
@@ -122,16 +122,13 @@ def p_while_section(p):
 
 def p_if_else_section(p):
 	"""
-	if_else_section : if_section elif_section else_section
-					| if_section else_section
+	if_else_section : if_section else_section
 					| if_section
 	"""
-	if p[1] == None:
-		print("if")
-	elif p[2] == None:
+	if len(p) == 3:
 		print("else")
-	elif p[3] == None:
-		print("elif")
+	else:
+		print("if")
 
 def p_util(p):
 	"""
@@ -145,20 +142,25 @@ def p_if_section(p):
 	"""
 	print("if section")
 
-def p_elif_section(p):
-	"""
-	elif_section : ELSE_IF util elif_section
-				 | ELSE_IF util
-	"""
-	print("else if section")
+# def p_elif_section(p):
+# 	"""
+# 	elif_section : ELSE IF util elif_section
+# 				 | ELSE IF util
+# 	"""
+# 	print("else if section")
 
 def p_else_section(p):
 	"""
-	else_section : ELSE LFLOWER code RFLOWER
-				 | ELSE line
+	else_section : ELSE after_else
 	"""
 	print("else section")
 
+def p_after_else(p):
+	"""
+	after_else : LFLOWER code RFLOWER
+			   | line
+	"""
+	
 def p_complex_conditional(p):
 	"""
 	complex_conditional : conditional COND_AND complex_conditional
@@ -180,11 +182,16 @@ def p_conditional(p):
 def p_line(p):
 	"""
 	line : dec SEMI_COLON
-		 | assgn COMMA
-		 | assgn SEMI_COLON
+		 | multi_assign SEMI_COLON
 		 | COMMENT
 		 | if_else_section
 		 | while_section
+	"""
+
+def p_multi_assign(p):
+	"""
+	multi_assign : assgn COMMA multi_assign
+				 | assgn
 	"""
 
 def p_dec(p):
