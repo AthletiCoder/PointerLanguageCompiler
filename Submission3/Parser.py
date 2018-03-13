@@ -1,34 +1,20 @@
 import sys
+import copy
 import ply.lex as lex
 import ply.yacc as yacc
-#Final
-# think about negative numbers
-#think about wrong variable names
-var = 0
-pointer = 0
-assignments = 0
-var_array = []
-pointer_array = []
-error = 0
-assignment_set = []
-global no_done
-global one_time
-global output
+import settings
+import trees
+import blocks
 
-output_to_file = ""
-
-no_done = 0
-one_time = 0
 class Tree:
 	node = None
 	lhs = None
 	rhs = None
 	depth = 0
 
-output = []
 
 tokens = (
-		'MAIN', 'VOID', 'TYPE', 'LPAREN', 'RPAREN', 'LFLOWER', 'RFLOWER', 'SEMI_COLON', 'COMMA', 'NAME', 'STAR', 'EQUAL', 'AND', 'NUMBER', 'COMMENT', 'PLUS', 'MINUS', 'DIVIDE', 'IF', 'ELSE', 'WHILE', 'NOT_EQUAL', 'DOUBLE_EQUAL', 'GTHAN', 'LTHAN', 'GTHAN_EQUAL', 'LTHAN_EQUAL', 'COND_AND', 'COND_OR'
+		'MAIN', 'VOID', 'TYPE', 'LPAREN', 'RPAREN', 'LFLOWER', 'RFLOWER', 'SEMI_COLON', 'COMMA', 'NAME', 'STAR', 'EQUAL', 'AND', 'NUMBER', 'COMMENT', 'PLUS', 'MINUS', 'DIVIDE', 'IF', 'ELSE', 'WHILE', 'NOT_EQUAL', 'DOUBLE_EQUAL', 'GTHAN', 'LTHAN', 'GTHAN_EQUAL', 'LTHAN_EQUAL', 'COND_AND', 'COND_OR', 'NOT'
 )
 
 t_ignore = " \t\n"
@@ -58,7 +44,7 @@ t_EQUAL = r'='
 t_COND_AND = r'&&'
 t_COND_OR = r'\|\|'
 t_AND = r'&'
-# t_ELSE_IF = r'else\s+if' 
+t_NOT = r'!'
 
 def t_COMMENT(t):
 	r'(//)[^\n\r]*[\n\r]'
@@ -98,6 +84,12 @@ def t_error(t):
 	t.lexer.skip(1)
 
 precedence = (
+		('left', 'COND_OR'),
+		('left', 'COND_AND'),
+		('right', 'NOT'),
+		('left', 'NOT_EQUAL', 'DOUBLE_EQUAL'),
+		('left', 'GTHAN', 'GTHAN_EQUAL'),
+		('left', 'LTHAN', 'LTHAN_EQUAL'),
 		('left', 'PLUS', 'MINUS'),
 		('left', 'STAR', 'DIVIDE'),
 		('right', 'UMINUS'),
@@ -108,17 +100,46 @@ precedence = (
 
 def p_program(p):
 	'program : VOID MAIN LPAREN RPAREN LFLOWER code RFLOWER'
+	p[0] = p[6]
+	settings.output_list = p[0]
 
 def p_code(p):
 	"""
 	code : line code
 		 | line
 	"""
+	if len(p) == 2:
+		p[0] = [p[1]]
+	elif len(p) == 3:
+		p[0] = [p[1]]+p[2]
+
+def p_line_useless(p):
+	"""
+	line : dec SEMI_COLON
+		 | COMMENT
+	"""
+
+def p_line(p):
+	"""
+	line : multi_assign SEMI_COLON
+		 | if_else_section
+		 | while_section
+	"""
+	if len(p) == 3:
+		p[0] = p[1]
+	elif p[1] is not None:
+		p[0] = p[1]
+	# print(p[0])
 
 def p_while_section(p):
 	"""
-	while_section : WHILE util
+	while_section : WHILE LPAREN complex_conditional RPAREN LFLOWER code RFLOWER
+				  | WHILE LPAREN complex_conditional RPAREN line
 	"""
+	if len(p) == 6:
+		p[0] = [[p[5]], p[3],"while"]
+	elif len(p) == 8:
+		p[0] = [p[6], p[3],"while"]
 
 def p_if_else_section(p):
 	"""
@@ -126,74 +147,78 @@ def p_if_else_section(p):
 					| if_section
 	"""
 	if len(p) == 3:
-		print("else")
+		p[0] = p[1]+[p[2]]+["if"]
 	else:
-		print("if")
-
-def p_util(p):
-	"""
-	util : LPAREN complex_conditional RPAREN LFLOWER code RFLOWER
-		 | LPAREN complex_conditional RPAREN line
-	"""
+		p[0] = p[1]+["if"]
 
 def p_if_section(p):
 	"""
-	if_section : IF util
+	if_section : IF LPAREN complex_conditional RPAREN LFLOWER code RFLOWER
+		 	   | IF LPAREN complex_conditional RPAREN line
 	"""
-	print("if section")
-
-# def p_elif_section(p):
-# 	"""
-# 	elif_section : ELSE IF util elif_section
-# 				 | ELSE IF util
-# 	"""
-# 	print("else if section")
-
+	if len(p)==6:
+		p[0] = [p[3], [p[5]]]
+	elif len(p)==8:
+		p[0] = [p[3], p[6]]
 def p_else_section(p):
 	"""
 	else_section : ELSE after_else
 	"""
-	print("else section")
+	p[0] = p[2] 
 
 def p_after_else(p):
 	"""
 	after_else : LFLOWER code RFLOWER
 			   | line
 	"""
-	
+	if len(p) == 4:
+		p[0] = p[2]
+	else:
+		p[0] = [p[1]]
+
 def p_complex_conditional(p):
 	"""
-	complex_conditional : conditional COND_AND complex_conditional
-					    | conditional COND_OR complex_conditional
+	complex_conditional : complex_conditional COND_AND complex_conditional
+					    | complex_conditional COND_OR complex_conditional
 					    | conditional
 	"""
+	if len(p) == 4:
+		# p[0] = p[1]+p[3]+[p[2]]
+		p[0] = [p[2]]+p[3]+p[1]
+	else:
+		p[0] = p[1]
+
+def p_complex_group(p):
+	"""
+	complex_conditional : LPAREN complex_conditional RPAREN
+						| NOT complex_conditional
+	"""
+	if len(p) == 4:
+		p[0] = p[2]
+	else:
+		p[0] = [p[1]]+p[2]
 
 def p_conditional(p):
 	"""
-	conditional : expression DOUBLE_EQUAL conditional
-				| expression NOT_EQUAL conditional
-				| expression GTHAN conditional
-				| expression LTHAN conditional
-				| expression GTHAN_EQUAL conditional
-				| expression LTHAN_EQUAL conditional
-				| expression
+	conditional : expression DOUBLE_EQUAL expression
+				| expression NOT_EQUAL expression
+				| expression GTHAN expression
+				| expression LTHAN expression
+				| expression GTHAN_EQUAL expression
+				| expression LTHAN_EQUAL expression
 	"""
-
-def p_line(p):
-	"""
-	line : dec SEMI_COLON
-		 | multi_assign SEMI_COLON
-		 | COMMENT
-		 | if_else_section
-		 | while_section
-	"""
+	if len(p) == 4:
+		# p[0] = p[1]+p[3]+[p[2]]
+		p[0] = [p[2]]+p[3]+p[1]
+	# else:
+	# 	p[0] = p[1]
 
 def p_multi_assign(p):
 	"""
-	multi_assign : assgn COMMA multi_assign
-				 | assgn
+	multi_assign : assgn
 	"""
-
+	if len(p) == 2:
+		p[0] = p[1]
 def p_dec(p):
 	"""
 	dec : TYPE vars
@@ -206,38 +231,19 @@ def p_vars(p):
 		 | NAME
 		 | pointer_other
 	"""
-	global pointer
-	global var
-	global pointer_array
-	global var_array
-	if p[1] is None:
-		pointer = pointer+1
-	else:
-		var = var+1
 
 def p_assgn(p):
 	"""
 	assgn : pointer EQUAL expression
 		  | name EQUAL not_number_expression
 	"""
-	global assignments
-	global no_done
-	if one_time == 1 and no_done < len(output):
-		if p[1] is not None:
-			output[no_done].append(p[1])
-		if p[3] is not None:
-			output[no_done].append(p[3])
-		output[no_done].append(p[2])
-		no_done = no_done+1
-	else:
-		assignments = assignments+1
+	p[0] = [p[2]]+p[1]+p[3]
 
 def p_name(p):
 	"""
 	name : NAME
 	"""
-	if one_time == 1 and no_done < len(output):
-		output[no_done].append(p[1])
+	p[0] = [p[1]]
 
 def p_not_number_expression(p):
 	"""
@@ -254,31 +260,28 @@ def p_not_number_expression(p):
 						  | not_number_expression STAR not_number_expression
 						  | not_number_expression DIVIDE not_number_expression
 	"""
-	if one_time == 1 and no_done < len(output):
-		output[no_done].append(p[2])
+	p[0] = [p[2]]+p[3]+p[1]
 
-def p_not_number_expression_basic(p):
+def p_not_number_expression_basic_term(p):
 	"""
 	not_number_expression : NAME
-						  | and
+	"""
+	p[0] = [p[1]]
+
+def p_not_number_expression_basic_nt(p):
+	"""
+	not_number_expression : and
 						  | pointer
 	"""
-	global output
-	if one_time == 1 and no_done < len(output):
-		if p[1] is not None:
-			output[no_done].append(p[1])
-
+	p[0] = p[1]
 def p_not_number_expression_group(p):
 	"""
 	not_number_expression : LPAREN not_number_expression RPAREN
 	"""
-
+	p[0] = p[2]
 def p_not_number_expression_uminus(p):
 	'not_number_expression : MINUS not_number_expression %prec UMINUS'
-	global output
-	if one_time == 1 and no_done < len(output):
-		output[no_done].append("u"+p[1])
-
+	p[0] = ["u"+p[1]]+p[2]
 
 def p_number_expression(p):
 	"""
@@ -287,30 +290,27 @@ def p_number_expression(p):
 					  | number_expression STAR number_expression
 					  | number_expression DIVIDE number_expression
 	"""
-	global output
-	if one_time == 1 and no_done < len(output):
-		output[no_done].append(p[2])
+	# p[0] = p[1]+p[3]+[p[2]]
+	p[0] = [p[2]]+p[3]+p[1]
 
 def p_number_expression_group(p):
 	"""
 	number_expression : LPAREN number_expression RPAREN
 	"""
-	
+	p[0] = p[2]
+
 def p_number_expression_uminus(p):
 	"""
 	number_expression : MINUS number_expression %prec UMINUS
 	"""
-	global output
-	if one_time == 1 and no_done < len(output):
-		output[no_done].append("u"+p[1])
+	p[0] = ["u"+p[1]]+p[2]
 
 def p_number_expression_basic(p):
 	"""
 	number_expression : NUMBER
 	"""
-	if one_time == 1 and no_done < len(output):
-		if p[1] is not None:
-			output[no_done].append(p[1])
+	p[0] = [p[1]]
+
 
 def p_expression_advanced(p):
 	"""
@@ -319,148 +319,73 @@ def p_expression_advanced(p):
 			   | expression STAR expression
 			   | expression DIVIDE expression
 	"""
-	global output
-	if one_time == 1 and no_done < len(output):
-		output[no_done].append(p[2])
+	p[0] = [p[2]]+p[3]+p[1]
 
 def p_expression_group(p):
 	'expression : LPAREN expression RPAREN'
+	p[0] = p[2]
 
 def p_expression_uminus(p):
 	'expression : MINUS expression %prec UMINUS'
-	global output
-	if one_time == 1 and no_done < len(output):
-		# print("u"+p[1])
-		output[no_done].append("u"+p[1])
+	p[0] = ["u"+p[1]]+p[2]
 
-def p_expression_basic(p):
+def p_expression_basic_term(p):
 	"""
 	expression : NUMBER
 			   | NAME
-			   | pointer
+	"""
+	p[0] = [p[1]]
+
+def p_expression_basic_nt(p):
+	"""
+	expression : pointer
 			   | and
 	"""
-	global output
-	if one_time == 1 and no_done < len(output):
-		if p[1] is not None:
-			output[no_done].append(p[1])
-def p_pointer(p):
+	p[0] = p[1]
+
+def p_pointer_term(p):
+	"""
+	pointer : STAR NAME %prec STAR_POINTER
+	"""
+	p[0] = ["p"+p[1]]+[p[2]]
+def p_pointer_nt(p):
 	"""
 	pointer : STAR pointer %prec STAR_POINTER
 			| STAR and %prec STAR_POINTER
-			| STAR NAME %prec STAR_POINTER
 	"""
-	global output
-	if one_time == 1 and no_done < len(output):
-		if p[2] is not None:
-			output[no_done].append(p[2])
-			output[no_done].append("p"+p[1])
-		else:
-			output[no_done].append("p"+p[1])
+	p[0] = ["p"+p[1]]+p[2]
 
 def p_and(p):
 	"""
+	and : AND NAME %prec AND_POINTER
+	"""
+	p[0] = ["a"+p[1]]+[p[2]]
+
+def p_and_nt(p):
+	"""
 	and : AND and %prec AND_POINTER
-		| AND NAME %prec AND_POINTER
 		| AND pointer %prec AND_POINTER
 	"""
-	global output
-	if one_time == 1 and no_done < len(output):
-		if p[2] is not None:
-			output[no_done].append(p[2])
-			output[no_done].append("a"+p[1])
-		else:
-			output[no_done].append("a"+p[1])
+	p[0] = ["a"+p[1]]+p[2]	
 
-
-def p_pointer_other(p):
+def p_pointer_other_term(p):
+	"""
+	pointer_other : STAR NAME %prec STAR_POINTER
+	"""
+	p[0] = ["p"+p[1]]+[p[2]]
+def p_pointer_other_nt(p):
 	"""
 	pointer_other : STAR pointer %prec STAR_POINTER
-				  | STAR NAME %prec STAR_POINTER
 	"""
-	
+	p[0] = ["p"+p[1]]+p[2]
+
 def p_error(p):
-	global error
 	if p:
 		print("syntax error at {0}".format(p.value))
-		error = 1
+		settings.error = 1
 	else:
 		print("syntax error at EOF")
-		error = 1
-
-def add_to_tree(tree, output, depth):
-	temp = output.pop()
-	tree.node = temp
-	tree.depth = depth
-	if temp == '+' or temp == '-' or temp == '/' or temp == '*' or temp == '=':
-		tree.rhs = Tree()
-		tree.lhs = Tree()
-		add_to_tree(tree.rhs, output, depth+1)
-		add_to_tree(tree.lhs, output, depth+1)
-	elif temp == 'p*' or temp == 'a&' or temp == 'u-':
-		tree.rhs = Tree()
-		add_to_tree(tree.rhs, output, depth+1)
-
-def print_tree(tree):
-	if tree.lhs is not None:
-		print_tree(tree.lhs)
-	print(tree.node)
-	if tree.rhs is not None:
-		print_tree(tree.rhs)
-
-def print_parse_tree(tree):
-	t = 0
-	comma = 0
-
-	global output_to_file
-
-	tabs = tree.depth*"\t"
-	tabs2 = tabs+"\t"
-	
-	if tree.node == '=':
-		output_to_file += tabs+"ASGN"+"\n"
-		output_to_file += tabs+"("+"\n"
-	elif tree.node == '+':
-		comma = 1
-		output_to_file += tabs+"PLUS"+"\n"
-		output_to_file += tabs+"("+"\n"
-	elif tree.node == '-':
-		comma = 1
-		output_to_file += tabs+"MINUS"+"\n"
-		output_to_file += tabs+"("+"\n"
-	elif tree.node == '/':
-		comma = 1
-		output_to_file += tabs+"DIV"+"\n"
-		output_to_file += tabs+"("+"\n"
-	elif tree.node == '*':
-		comma = 1
-		output_to_file += tabs+"MUL"+"\n"
-		output_to_file += tabs+"("+"\n"
-	elif tree.node == 'p*':
-		output_to_file += tabs+"DEREF"+"\n"
-		output_to_file += tabs+"("+"\n"
-	elif tree.node == 'a&':
-		output_to_file += tabs+"ADDR"+"\n"
-		output_to_file += tabs+"("+"\n"
-	elif tree.node == 'u-':
-		output_to_file += tabs+"UMINUS"+"\n"
-		output_to_file += tabs+"("+"\n"
-	elif isinstance(tree.node, int):
-		output_to_file += tabs+"CONST("+str(tree.node)+")"+"\n"
-		t = 1
-	else:
-		output_to_file += tabs+"VAR("+tree.node+")"+"\n"
-		t = 1
-
-	if tree.lhs is not None:
-		print_parse_tree(tree.lhs)
-		if t == 0:
-			output_to_file += tabs+'\t'+','+"\n"
-	if tree.rhs is not None:
-		print_parse_tree(tree.rhs)
-
-	if t == 0:
-		output_to_file += tabs+")"+"\n"
+		settings.error = 1
 
 def process(data):
 	lex.lex()
@@ -471,26 +396,21 @@ if __name__ == "__main__":
 	filename = sys.argv[-1]
 	infile = open(filename, "r")
 	lines = infile.read()
+	settings.init_global()
 
 	process(lines)
-	one_time = 1
-
-	for i in range(assignments):
-		output.append([])
-
-	if error == 0:
+	
+	if settings.error == 0:
+		ast_filename = filename+".ast"
 		print("Successfully parsed!")
-		print("Checkout output.txt")
-	process(lines)
-	k = 0
-	for i in output:
-		my_tree = Tree()
-		add_to_tree(my_tree, i, 0)
-		print_parse_tree(my_tree)
-		if k < len(output)-1:
-			output_to_file += '\n'
-		k += 1
-
-	print(output_to_file, file=open("output.txt", "w"))
-
-
+		print("Checkout ast_output.txt for AST")
+		print("Checkout cfg_output.txt for CFG")
+		trees.process_output(settings.output_list, 0)
+		blocks.trim(settings.output_list)
+		settings.output_list.reverse()
+		print(settings.output_to_file, file=open("ast_output.txt", "w"))
+		blocks.create_blocks("assgn", 1, settings.output_list, None)
+		blocks.construct_blocks(settings.blocks)
+		settings.block_output += ('<bb %d>' %(settings.no_blocks+1))+'\n'
+		settings.block_output += "End"
+		print(settings.block_output, file=open("cfg_output.txt", "w"))
