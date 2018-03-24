@@ -48,6 +48,7 @@ t_NOT = r'!'
 
 def t_COMMENT(t):
 	r'(//)[^\n\r]*[\n\r]'
+	# r'\/\*+((([^\*])+)|([\*]+(?!\/)))[*]+\/'
 	return t
 
 def t_NAME(t):
@@ -116,64 +117,56 @@ precedence = (
 settings.output_list = []
 def p_program(p):
 	"""
-	program : VOID name LPAREN arguments RPAREN LFLOWER code RFLOWER program
-			| TYPE name LPAREN arguments RPAREN LFLOWER code RFLOWER program
-			| VOID name LPAREN arguments RPAREN SEMI_COLON program
-			| TYPE name LPAREN arguments RPAREN SEMI_COLON program
-			| VOID name LPAREN RPAREN LFLOWER code RFLOWER program
-			| TYPE name LPAREN RPAREN LFLOWER code RFLOWER program
-			| VOID name LPAREN RPAREN SEMI_COLON program
-			| TYPE name LPAREN RPAREN SEMI_COLON program
+	program : VOID func_name LPAREN arguments RPAREN LFLOWER code RFLOWER program
+			| TYPE func_name LPAREN arguments RPAREN LFLOWER code RFLOWER program
+			| VOID func_name LPAREN arguments RPAREN SEMI_COLON program
+			| TYPE func_name LPAREN arguments RPAREN SEMI_COLON program
+			| VOID func_name LPAREN RPAREN LFLOWER code RFLOWER program
+			| TYPE func_name LPAREN RPAREN LFLOWER code RFLOWER program
+			| VOID func_name LPAREN RPAREN SEMI_COLON program
+			| TYPE func_name LPAREN RPAREN SEMI_COLON program
 			| dec SEMI_COLON program
 			| epsilon
 	"""
 	if len(p) == 10:
-		p[0] = p[7]
+		p[0] = [p[7], p[4], p[1], p[2]]
+		settings.output_list += p[0]
+	elif len(p) == 8:
+		p[0] = [p[4], p[1], p[2]]
 		settings.output_list += p[0]
 	elif len(p) == 9:
-		p[0] = p[6]
-		print("p[0]")
+		p[0] = [p[7], [], p[1], p[2]]
 		settings.output_list += p[0]
-	# temp2 = p[2]
-	# temp = p[4]
-	# print(temp)
-	# print(temp2)
+	elif len(p) == 7:
+		p[0] = [[], p[1], p[2]]
+		settings.output_list += p[0]
+	elif len(p) == 4:
+		p[0] = p[1]
+		
+def p_func_name(p):
+	"""
+	func_name : NAME
+			  | func_pointer
+	"""
+	p[0] = p[1]
 
-# def p_program2(p):
-# 	"""
-# 	program : VOID name LPAREN RPAREN LFLOWER code RFLOWER program
-# 			| TYPE name LPAREN RPAREN LFLOWER code RFLOWER program
-# 			| VOID name LPAREN RPAREN SEMI_COLON program
-# 			| TYPE name LPAREN RPAREN SEMI_COLON program
-# 			| dec SEMI_COLON program
-# 			| epsilon
-# 	"""
-# 	if len(p) == 8:
-# 		p[0] = p[6]
-# 		settings.output_list += p[0]
-# 	# p[0] = p[6]
-# 	# settings.output_list = p[0]
-# 	# p[0] = p[2]
-# 	# print(p[2])
+def p_func_pointer(p):
+	"""
+	func_pointer : STAR NAME %prec STAR_POINTER
+				 | STAR func_pointer %prec STAR_POINTER
+	"""
+	p[0] = p[1]+p[2]
 
+# storing in the reverse order
 def p_arguments(p):
 	"""
-	arguments : TYPE var_name COMMA arguments
-			  | TYPE var_name
+	arguments : TYPE func_name COMMA arguments
+			  | TYPE func_name
 	"""
-	# if len(p) == 3:
-	# 	p[0] = [[p[2]]+[p[1]]]
-	# else:
-	# 	p[0] = [[p[2]]+[p[1]]] + p[4]
-
-	# print(p[0])
-
-def p_var_name(p):
-	"""
-	var_name : STAR var_name
-			 | STAR NAME
-	"""
-	# p[0] = p[1]+p[2]
+	if len(p) == 3:
+		p[0] = [[p[1], p[2]]]
+	else:
+		p[0] = p[4]+[[p[1], p[2]]]
 
 def p_epsilon(p):
 	'epsilon : '
@@ -187,13 +180,34 @@ def p_code(p):
 		p[0] = [p[1]]
 	elif len(p) == 3:
 		p[0] = [p[1]]+p[2]
-	print("p_code")
+	# print("p_code")
 
 def p_line_dec(p):
 	"""
 	line : dec SEMI_COLON
 		 | COMMENT
 	"""
+	if len(p) == 3:
+		p[0] = p[1]
+
+def p_dec(p):
+	"""
+	dec : TYPE vars
+	"""
+	p[0] = [p[1]]+[p[2]]
+
+def p_vars(p):
+	"""
+	vars : NAME COMMA vars
+		 | func_pointer COMMA vars
+		 | NAME
+		 | func_pointer
+	"""
+	if len(p) == 4:
+		p[0] = [p[1]]+p[3]
+	else:
+		p[0] = [p[1]]
+
 
 def p_line(p):
 	"""
@@ -205,23 +219,135 @@ def p_line(p):
 		p[0] = p[1]
 	elif p[1] is not None:
 		p[0] = p[1]
-	# print(p[0])
-	print("p_line")
+	
+def p_assgn_expression(p):
+	"""
+	assgn : assgn_pointer EQUAL expression
+	"""
+	temp = p[3]+["float*"]
+	p[0] = [p[2]]+p[1]+temp
 
+def p_assgn_pointer_nt(p):
+	"""
+	assgn_pointer : STAR assgn_pointer %prec STAR_POINTER
+	"""
+	p[0] = ["p"+p[1]]+p[2]
+
+def p_assgn_pointer_t(p):
+	"""
+	assgn_pointer : STAR NAME %prec STAR_POINTER
+	"""
+	p[0] = ["p"+p[1]]+[p[2]]
+
+def p_expression_basic_t(p):
+	"""
+	expression : INT
+			   | FLOAT
+	"""
+	p[0] = [p[1]]
+
+def p_expression_basic_nt(p):
+	"""
+	expression : assgn_pointer
+			   | pointer_and_var
+	"""
+	p[0] = p[1]
+
+def p_pointer_and_var(p):
+	"""
+	pointer_and_var : STAR and %prec STAR_POINTER
+					| STAR pointer_and_var %prec STAR_POINTER
+	"""
+	p[0] = ["p"+p[1]]+p[2]
+
+def p_and(p):
+	"""
+	and : AND NAME %prec AND_POINTER
+	"""
+	p[0] = ["a"+p[1]]+[p[2]]
+
+def p_expression_advanced(p):
+	"""
+	expression : expression PLUS expression
+			   | expression MINUS expression
+			   | expression STAR expression
+			   | expression DIVIDE expression
+	"""
+	p[0] = [p[2]]+p[3]+p[1]
+
+def p_expression_group(p):
+	'expression : LPAREN expression RPAREN'
+	p[0] = p[2]
+
+def p_expression_uminus(p):
+	'expression : MINUS expression %prec UMINUS'
+	p[0] = ["u"+p[1]]+p[2]
+
+# change func_name to NAME and assgn pointer if ast should be drawn for function calls like ***func()
+def p_function_call(p):
+	"""
+	expression : func_name LPAREN parameters RPAREN
+			   | func_name LPAREN RPAREN
+	"""
+	if len(p) == 4:
+		p[0] = [p[1]]
+	else:
+		p[0] = [p[3], p[1]]
+# remember the reverse order
+def p_parameters_name(p):
+	"""
+	parameters : NAME COMMA parameters
+			   | NAME
+	"""
+	if len(p) == 2:
+		p[0] = [p[1]]
+	else:
+		p[0] = p[3]+[p[1]]
+
+def p_parameters_expression(p):
+	"""
+	parameters : expression COMMA parameters
+			   | expression
+	"""
+	if len(p) == 2:
+		p[0] = [p[1]]
+	else:
+		p[0] = p[3]+[p[1]] 
+
+
+# def p_assgn_float_expression(p):
+# 	"""
+# 	assgn : assgn_pointer EQUAL float_expression
+# 	"""
+# 	temp = p[3]+["float*"]
+# 	p[0] = [p[2]]+p[1]+temp
+# 	# print("p_assgn")
+
+
+#come back and check this after writing code for creating tuples at the latest
 def p_function_call_line(p):
 	"""
-	line : NAME LPAREN vars RPAREN SEMI_COLON
+	line : NAME LPAREN parameters RPAREN SEMI_COLON
 		 | NAME LPAREN RPAREN SEMI_COLON
 		 | return_line
 	"""
-	print("found")
-	# may change var_name to var_star
+	if len(p) == 6:
+		p[0] = [p[3]]+[p[1]]
+	elif len(p) == 5:
+		p[0] = [p[1]]
+	else:
+		p[0] = p[1]
 
 def p_return_line(p):
 	"""
 	return_line : RETURN expression SEMI_COLON
 				| RETURN SEMI_COLON
 	"""
+	if len(p) == 4:
+		p[0] = [p[2], p[1]]
+	else:
+		p[0] = [p[1]]
+
 
 def p_while_section(p):
 	"""
@@ -312,141 +438,76 @@ def p_conditional(p):
 # 	if len(p) == 2:
 # 		p[0] = p[1]
 
-def p_dec(p):
-	"""
-	dec : TYPE vars
-	"""
 
-def p_vars(p):
-	"""
-	vars : NAME COMMA vars
-		 | pointer_other COMMA vars
-		 | NAME
-		 | pointer_other
-	"""
 
-# def p_assgn(p):
+# def p_float_expression_advanced(p):
 # 	"""
-# 	assgn : pointer EQUAL expression
-# 		  | name EQUAL not_number_expression
+# 	float_expression : expression PLUS float_expression
+# 					 | expression MINUS float_expression
+# 					 | expression STAR float_expression
+# 					 | expression DIVIDE float_expression
+# 					 | float_expression PLUS expression
+# 					 | float_expression MINUS expression
+# 					 | float_expression STAR expression
+# 					 | float_expression DIVIDE expression
+# 					 | float_expression PLUS float_expression
+# 					 | float_expression MINUS float_expression
+# 					 | float_expression STAR float_expression
+# 					 | float_expression DIVIDE float_expression
 # 	"""
-# 	p[0] = [p[2]]+p[1]+p[3]
+# 	p[0] = [p[2]]+p[3]+p[1]
 
-def p_assgn(p):
-	"""
-	assgn : pointer EQUAL expression
-		  | pointer EQUAL float_expression
-		  | name EQUAL expression
-		  | name EQUAL float_expression
-	"""
-		  #| name EQUAL not_number_expression
-	# print("assgn is fine")
-	p[0] = [p[2]]+p[1]+p[3]
-	print("p_assgn")
+# def p_float_expression_group(p):
+# 	'float_expression : LPAREN float_expression RPAREN'
+# 	p[0] = p[2]
 
-def p_float_expression_advanced(p):
-	"""
-	float_expression : expression PLUS float_expression
-					 | expression MINUS float_expression
-					 | expression STAR float_expression
-					 | expression DIVIDE float_expression
-					 | float_expression PLUS expression
-					 | float_expression MINUS expression
-					 | float_expression STAR expression
-					 | float_expression DIVIDE expression
-					 | float_expression PLUS float_expression
-					 | float_expression MINUS float_expression
-					 | float_expression STAR float_expression
-					 | float_expression DIVIDE float_expression
-	"""
-	p[0] = [p[2]]+p[3]+p[1]
+# def p_float_expression_uminus(p):
+# 	'float_expression : MINUS float_expression %prec UMINUS'
+# 	p[0] = ["u"+p[1]]+p[2]
 
-def p_float_expression_group(p):
-	'float_expression : LPAREN float_expression RPAREN'
-	p[0] = p[2]
+# def p_float_exp_basic(p):
+# 	"""
+# 	float_expression : FLOAT
+# 	"""
+# 	p[0] = [p[1]]
 
-def p_float_expression_uminus(p):
-	'float_expression : MINUS float_expression %prec UMINUS'
-	p[0] = ["u"+p[1]]+p[2]
+# def p_pointer_term(p):
+# 	"""
+# 	pointer : STAR NAME %prec STAR_POINTER
+# 	"""
+# 	p[0] = ["p"+p[1]]+[p[2]]
+# def p_pointer_nt(p):
+# 	"""
+# 	pointer : STAR pointer %prec STAR_POINTER
+# 			| STAR and %prec STAR_POINTER
+# 	"""
+# 	p[0] = ["p"+p[1]]+p[2]
 
-def p_float_exp_basic(p):
-	"""
-	float_expression : FLOAT
-	"""
-	p[0] = [p[1]]
+# def p_and(p):
+# 	"""
+# 	and : AND NAME %prec AND_POINTER
+# 	"""
+# 	p[0] = ["a"+p[1]]+[p[2]]
 
-def p_name(p):
-	"""
-	name : NAME
-	"""
-	p[0] = [p[1]]
+# def p_and_nt(p):
+# 	"""
+# 	and : AND and %prec AND_POINTER
+# 		| AND pointer %prec AND_POINTER
+# 	"""
+# 	p[0] = ["a"+p[1]]+p[2]	
 
-def p_expression_advanced(p):
-	"""
-	expression : expression PLUS expression
-			   | expression MINUS expression
-			   | expression STAR expression
-			   | expression DIVIDE expression
-	"""
-	p[0] = [p[2]]+p[3]+p[1]
+# def p_pointer_other_term(p):
+# 	"""
+# 	pointer_other : STAR NAME %prec STAR_POINTER
+# 	"""
+# 	p[0] = ["p"+p[1]]+[p[2]]
+# def p_pointer_other_nt(p):
+# 	"""
+# 	pointer_other : STAR pointer %prec STAR_POINTER
+# 	"""
+# 	p[0] = ["p"+p[1]]+p[2]
 
-def p_expression_group(p):
-	'expression : LPAREN expression RPAREN'
-	p[0] = p[2]
 
-def p_expression_uminus(p):
-	'expression : MINUS expression %prec UMINUS'
-	p[0] = ["u"+p[1]]+p[2]
-
-def p_expression_basic_term(p):
-	"""
-	expression : INT
-			   | NAME
-	"""
-	p[0] = [p[1]]
-
-def p_expression_basic_nt(p):
-	"""
-	expression : pointer
-			   | and
-	"""
-	p[0] = p[1]
-
-def p_pointer_term(p):
-	"""
-	pointer : STAR NAME %prec STAR_POINTER
-	"""
-	p[0] = ["p"+p[1]]+[p[2]]
-def p_pointer_nt(p):
-	"""
-	pointer : STAR pointer %prec STAR_POINTER
-			| STAR and %prec STAR_POINTER
-	"""
-	p[0] = ["p"+p[1]]+p[2]
-
-def p_and(p):
-	"""
-	and : AND NAME %prec AND_POINTER
-	"""
-	p[0] = ["a"+p[1]]+[p[2]]
-
-def p_and_nt(p):
-	"""
-	and : AND and %prec AND_POINTER
-		| AND pointer %prec AND_POINTER
-	"""
-	p[0] = ["a"+p[1]]+p[2]	
-
-def p_pointer_other_term(p):
-	"""
-	pointer_other : STAR NAME %prec STAR_POINTER
-	"""
-	p[0] = ["p"+p[1]]+[p[2]]
-def p_pointer_other_nt(p):
-	"""
-	pointer_other : STAR pointer %prec STAR_POINTER
-	"""
-	p[0] = ["p"+p[1]]+p[2]
 
 def p_error(p):
 	if p:
