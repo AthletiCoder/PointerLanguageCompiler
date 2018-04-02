@@ -12,6 +12,22 @@ class Tree:
 	rhs = None
 	depth = 0
 
+class Symbol_Table:
+	parent = None
+	declarations = {}
+	func_dec = {}
+	func_def = {}
+	level = None
+	return_type = None
+
+global global_symbol_table
+global_symbol_table = Symbol_Table()
+
+global error_symbol_table
+error_symbol_table = 0
+
+global ternary_operators
+ternary_operators = ['>', '<', '>=', '<=', '==', '!=', '&&', '||', '+', '-', '/', '*']
 
 tokens = (
 		'VOID', 'TYPE', 'LPAREN', 'RPAREN', 'LFLOWER', 'RFLOWER', 'SEMI_COLON', 'COMMA', 'NAME', 'STAR', 'EQUAL', 'AND', 'INT', 'COMMENT', 'PLUS', 'MINUS', 'DIVIDE', 'IF', 'ELSE', 'WHILE', 'NOT_EQUAL', 'DOUBLE_EQUAL', 'GTHAN', 'LTHAN', 'GTHAN_EQUAL', 'LTHAN_EQUAL', 'COND_AND', 'COND_OR', 'NOT', 'FLOAT', 'RETURN'
@@ -108,12 +124,6 @@ precedence = (
 )
 
 
-# def p_program(p):
-# 	'program : VOID MAIN LPAREN RPAREN LFLOWER code RFLOWER'
-# 	p[0] = p[6]
-# 	settings.output_list = p[0]
-
-#Changed
 settings.output_list = []
 def p_program(p):
 	"""
@@ -130,19 +140,21 @@ def p_program(p):
 	"""
 	if len(p) == 10:
 		p[0] = [p[7], p[4], p[1], p[2]]
-		settings.output_list += p[0]
+		settings.output_list += [p[0]]
 	elif len(p) == 8:
-		p[0] = [p[4], p[1], p[2]]
-		settings.output_list += p[0]
+		p[0] = [[], p[4], p[1], p[2]]
+		settings.output_list += [p[0]]
 	elif len(p) == 9:
-		p[0] = [p[7], [], p[1], p[2]]
-		settings.output_list += p[0]
+		p[0] = [p[6], [], p[1], p[2]]
+		settings.output_list += [p[0]]
 	elif len(p) == 7:
-		p[0] = [[], p[1], p[2]]
-		settings.output_list += p[0]
+		p[0] = [[], [], p[1], p[2]]
+		settings.output_list += [p[0]]
 	elif len(p) == 4:
+		# print("gloabal_declarations_found")
 		p[0] = p[1]
-		
+		settings.output_list += [p[0]]
+
 def p_func_name(p):
 	"""
 	func_name : NAME
@@ -164,9 +176,9 @@ def p_arguments(p):
 			  | TYPE func_name
 	"""
 	if len(p) == 3:
-		p[0] = [[p[1], p[2]]]
+		p[0] = [[p[1], [p[2]]]]
 	else:
-		p[0] = p[4]+[[p[1], p[2]]]
+		p[0] = p[4]+[[p[1], [p[2]]]]
 
 def p_epsilon(p):
 	'epsilon : '
@@ -179,8 +191,7 @@ def p_code(p):
 	if len(p) == 2:
 		p[0] = [p[1]]
 	elif len(p) == 3:
-		p[0] = [p[1]]+p[2]
-	# print("p_code")
+		p[0] = p[2]+[p[1]]
 
 def p_line_dec(p):
 	"""
@@ -220,12 +231,20 @@ def p_line(p):
 	elif p[1] is not None:
 		p[0] = p[1]
 	
-def p_assgn_expression(p):
+def p_assgn_expression_pointer(p):
 	"""
 	assgn : assgn_pointer EQUAL expression
+		  | assgn_pointer EQUAL and
 	"""
-	temp = p[3]+["float*"]
-	p[0] = [p[2]]+p[1]+temp
+	p[0] = [p[2]]+p[1]+p[3]
+
+def p_assgn_expression_name(p):
+	"""
+	assgn : NAME EQUAL and
+		  | NAME EQUAL function_call
+	"""
+	p[0] = [p[2]]+[p[1]]+p[3]
+
 
 def p_assgn_pointer_nt(p):
 	"""
@@ -283,16 +302,27 @@ def p_expression_uminus(p):
 	'expression : MINUS expression %prec UMINUS'
 	p[0] = ["u"+p[1]]+p[2]
 
-# change func_name to NAME and assgn pointer if ast should be drawn for function calls like ***func()
-def p_function_call(p):
+# change func_name to NAME and assgn_pointer if ast should be drawn for function calls like ***func()
+def p_function_call_expression(p):
 	"""
-	expression : func_name LPAREN parameters RPAREN
-			   | func_name LPAREN RPAREN
+	expression : NAME LPAREN parameters RPAREN
+			   | NAME LPAREN RPAREN
 	"""
 	if len(p) == 4:
-		p[0] = [p[1]]
+		p[0] = [[[], p[1]]]
+	else:
+		p[0] = [[p[3], p[1]]]
+
+def p_function_call(p):
+	"""
+	function_call : func_name LPAREN parameters RPAREN
+			      | func_name LPAREN RPAREN
+	"""
+	if len(p) == 4:
+		p[0] = [[], p[1]]
 	else:
 		p[0] = [p[3], p[1]]
+
 # remember the reverse order
 def p_parameters_name(p):
 	"""
@@ -300,9 +330,9 @@ def p_parameters_name(p):
 			   | NAME
 	"""
 	if len(p) == 2:
-		p[0] = [p[1]]
+		p[0] = [[p[1]]]
 	else:
-		p[0] = p[3]+[p[1]]
+		p[0] = p[3]+[[p[1]]]
 
 def p_parameters_expression(p):
 	"""
@@ -314,17 +344,6 @@ def p_parameters_expression(p):
 	else:
 		p[0] = p[3]+[p[1]] 
 
-
-# def p_assgn_float_expression(p):
-# 	"""
-# 	assgn : assgn_pointer EQUAL float_expression
-# 	"""
-# 	temp = p[3]+["float*"]
-# 	p[0] = [p[2]]+p[1]+temp
-# 	# print("p_assgn")
-
-
-#come back and check this after writing code for creating tuples at the latest
 def p_function_call_line(p):
 	"""
 	line : NAME LPAREN parameters RPAREN SEMI_COLON
@@ -340,13 +359,28 @@ def p_function_call_line(p):
 
 def p_return_line(p):
 	"""
-	return_line : RETURN expression SEMI_COLON
+	return_line : RETURN NAME SEMI_COLON
 				| RETURN SEMI_COLON
 	"""
 	if len(p) == 4:
-		p[0] = [p[2], p[1]]
+		p[0] = [[p[2]], p[1]]
 	else:
 		p[0] = [p[1]]
+
+def p_return_line_assgn(p):
+	"""
+	return_line : RETURN expression SEMI_COLON
+	"""
+	p[0] = [p[2]]+[p[1]]
+
+# def p_return_line(p):
+# 	"""
+# 	return_line : RETURN NAME SEMI_COLON
+# 	"""
+# 	if len(p) == 4:
+# 		p[0] = [p[2], p[1]]
+# 	else:
+# 		p[0] = [p[1]]
 
 
 def p_while_section(p):
@@ -378,6 +412,7 @@ def p_if_section(p):
 		p[0] = [p[3], [p[5]]]
 	elif len(p)==8:
 		p[0] = [p[3], p[6]]
+
 def p_else_section(p):
 	"""
 	else_section : ELSE after_else
@@ -426,88 +461,7 @@ def p_conditional(p):
 				| expression LTHAN_EQUAL expression
 	"""
 	if len(p) == 4:
-		# p[0] = p[1]+p[3]+[p[2]]
 		p[0] = [p[2]]+p[3]+p[1]
-	# else:
-	# 	p[0] = p[1]
-
-# def p_multi_assign(p):
-# 	"""
-# 	multi_assign : assgn
-# 	"""
-# 	if len(p) == 2:
-# 		p[0] = p[1]
-
-
-
-# def p_float_expression_advanced(p):
-# 	"""
-# 	float_expression : expression PLUS float_expression
-# 					 | expression MINUS float_expression
-# 					 | expression STAR float_expression
-# 					 | expression DIVIDE float_expression
-# 					 | float_expression PLUS expression
-# 					 | float_expression MINUS expression
-# 					 | float_expression STAR expression
-# 					 | float_expression DIVIDE expression
-# 					 | float_expression PLUS float_expression
-# 					 | float_expression MINUS float_expression
-# 					 | float_expression STAR float_expression
-# 					 | float_expression DIVIDE float_expression
-# 	"""
-# 	p[0] = [p[2]]+p[3]+p[1]
-
-# def p_float_expression_group(p):
-# 	'float_expression : LPAREN float_expression RPAREN'
-# 	p[0] = p[2]
-
-# def p_float_expression_uminus(p):
-# 	'float_expression : MINUS float_expression %prec UMINUS'
-# 	p[0] = ["u"+p[1]]+p[2]
-
-# def p_float_exp_basic(p):
-# 	"""
-# 	float_expression : FLOAT
-# 	"""
-# 	p[0] = [p[1]]
-
-# def p_pointer_term(p):
-# 	"""
-# 	pointer : STAR NAME %prec STAR_POINTER
-# 	"""
-# 	p[0] = ["p"+p[1]]+[p[2]]
-# def p_pointer_nt(p):
-# 	"""
-# 	pointer : STAR pointer %prec STAR_POINTER
-# 			| STAR and %prec STAR_POINTER
-# 	"""
-# 	p[0] = ["p"+p[1]]+p[2]
-
-# def p_and(p):
-# 	"""
-# 	and : AND NAME %prec AND_POINTER
-# 	"""
-# 	p[0] = ["a"+p[1]]+[p[2]]
-
-# def p_and_nt(p):
-# 	"""
-# 	and : AND and %prec AND_POINTER
-# 		| AND pointer %prec AND_POINTER
-# 	"""
-# 	p[0] = ["a"+p[1]]+p[2]	
-
-# def p_pointer_other_term(p):
-# 	"""
-# 	pointer_other : STAR NAME %prec STAR_POINTER
-# 	"""
-# 	p[0] = ["p"+p[1]]+[p[2]]
-# def p_pointer_other_nt(p):
-# 	"""
-# 	pointer_other : STAR pointer %prec STAR_POINTER
-# 	"""
-# 	p[0] = ["p"+p[1]]+p[2]
-
-
 
 def p_error(p):
 	if p:
@@ -516,6 +470,282 @@ def p_error(p):
 	else:
 		print("syntax error at EOF")
 		settings.error = 1
+
+# function definition, function declaration, varibale declarations, variable assignments, while, if and if_else
+def create_symbol_table(input_list, symbol_table, prev):
+	global ternary_operators
+	while len(input_list) > 0:
+		temp = input_list.pop()
+		if temp[0] == "int" or temp[0] == "float": 
+			if prev == "dec_allowed":
+				for i in temp[1]:
+					level = 0
+					name = ""
+					temp2 = list(i)
+					for j in temp2:
+						if j == "*":
+							level += 1
+						else:
+							name = name+j
+					if name not in symbol_table.declarations:
+						symbol_table.declarations[name] = [temp[0], level]
+					else:
+						error_symbol_table = 1
+			else:
+				error_symbol_table = 1
+
+		elif temp[-2] == "int" or temp[-2] == "float" or temp[-2] == "void":
+			func_name = list(temp[-1])
+			level = 0
+			name = ""
+			for i in func_name:
+				if i == "*":
+					level += 1
+				else:
+					name = name+i
+			if len(temp[0]) == 0:
+				if name in symbol_table.func_dec or name == "main":
+					error_symbol_table = 1
+				else:
+					if temp[-2] == "void" and level != 0:
+						error_symbol_table = 1
+					else:
+						arguments_list = []
+						for i in temp[1]:
+							var = list(i[1][0])
+							arg_level = 0
+							for j in var:
+								if j == "*":
+									arg_level += 1
+							arguments_list.append([i[0], arg_level])
+						symbol_table.func_dec[name] = [temp[-2], level, arguments_list]
+			else:
+				if name in symbol_table.func_dec:
+					if symbol_table.func_dec[name][1] == level and symbol_table.func_dec[name][0] == temp[-2]:
+						if temp[-2] != "void" and (temp[0][0][-1] != "return" or len(temp[0][0]) ==1):	
+							error_symbol_table = 1
+						elif temp[-2] == "void" and temp[0][0][-1] == "return" and len(temp[0][0]) > 1:
+							error_symbol_table = 1
+						else:
+							arguments_list = []
+							for i in temp[1]:
+								var = list(i[1][0])
+								arg_level = 0
+								for j in var:
+									if j == "*":
+										arg_level += 1
+								arguments_list.append([i[0], arg_level])
+							if arguments_list == symbol_table.func_dec[name][2]:
+								symbol_table.func_def[name] = Symbol_Table()
+								symbol_table.func_def[name].parent = symbol_table
+								symbol_table.func_def[name].level = level
+								symbol_table.func_def[name].return_type = temp[-2]
+								create_symbol_table(temp[1], symbol_table.func_def[name], "dec_allowed")
+								create_symbol_table(temp[0], symbol_table.func_def[name], "dec_allowed")
+							else:
+								error_symbol_table = 1	
+					else:
+						error_symbol_table = 1
+				elif name == "main":
+					create_symbol_table(temp[0], symbol_table.func_def[name], "dec_allowed")
+				else:
+					error_symbol_table = 1
+
+
+		elif temp[-1] == "while":
+			condition_type = ""
+			for i in temp[1]:
+				if i not in ternary_operators:
+					if isinstance(i, (list,)):
+						if i[-1] in global_symbol_table.func_dec:
+							if global_symbol_table.func_dec[i[-1]][1] == 0 and (global_symbol_table.func_dec[i[-1]][0] == "int" or global_symbol_table.func_dec[i[-1]][0] == "float"):
+								if condition_type == "":
+									condition_type = global_symbol_table.func_dec[i[-1]][0]
+								elif condition_type != global_symbol_table.func_dec[i[-1]][0]:
+									error_symbol_table = 1
+								arguments_list = []
+								for j in i[0]:
+									var = list(j[0])
+									arg_level = 0
+									arg_name = ""
+									for k in var:
+										if k == "*":
+											arg_level += 1
+										else:
+											arg_name = arg_name+k
+									if arg_name in symbol_table.declarations:
+										if arg_level == symbol_table.declarations[arg_name][1]:
+											arguments_list.append([symbol_table.declarations[arg_name]])
+										else:
+											error_symbol_table = 1	
+									elif arg_name in global_symbol_table.declarations:
+										if arg_level == global_symbol_table.declarations[arg_name][1]:
+											arguments_list.append([global_symbol_table.declarations[arg_name]])
+										else:
+											error_symbol_table = 1
+									else:
+										error_symbol_table = 1
+								if arguments_list != global_symbol_table.func_dec[i[-1]][2]:
+									error_symbol_table = 1
+							else:
+								error_symbol_table = 1
+						else:
+							error_symbol_table =1
+					elif isinstance(i, int):
+						if condition_type == "":
+							condition_type = "int"
+						elif condition_type != "int":
+							error_symbol_table = 1
+					elif isinstance(i, float):
+						if condition_type =="":
+							condition_type = "float"
+						elif condition_type != "float":
+							error_symbol_table = 1
+					else:
+						var_name = ""
+						var_level = 0
+						var = list(i)
+						for j in var:
+							if j == "*":
+								var_level += 1
+							else:
+								var_name = var_name+j
+						if var_name in symbol_table.declarations:
+							if var_level == symbol_table.declarations[var_name][1]:
+								if condition_type == "":
+									condition_type = symbol_table.declarations[var_name][0]
+								elif condition_type != symbol_table.declarations[var_name][0]:
+									error_symbol_table = 1
+							else:
+								error_symbol_table = 1	
+						elif var_name in global_symbol_table.declarations:
+							if var_level == global_symbol_table.declarations[var_name][1]:
+								if condition_type == "":
+									condition_type = global_symbol_table.declarations[var_name][0]
+								elif condition_type != global_symbol_table.declarations[var_name][0]:
+									error_symbol_table = 1
+							else:
+								error_symbol_table = 1	
+						else:
+							error_symbol_table = 1
+			create_symbol_table(temp[0], symbol_table, "dec_not_allowed") 			
+		elif temp[-1] == "if":
+			condition_type = ""
+			for i in temp[0]:
+				if i not in ternary_operators:
+					if isinstance(i, (list,)):
+						if i[-1] in global_symbol_table.func_dec:
+							if global_symbol_table.func_dec[i[-1]][1] == 0 and (global_symbol_table.func_dec[i[-1]][0] == "int" or global_symbol_table.func_dec[i[-1]][0] == "float"):
+								if condition_type == "":
+									condition_type = global_symbol_table.func_dec[i[-1]][0]
+								elif condition_type != global_symbol_table.func_dec[i[-1]][0]:
+									error_symbol_table = 1
+								arguments_list = []
+								for j in i[0]:
+									var = list(j[0])
+									arg_level = 0
+									arg_name = ""
+									for k in var:
+										if k == "*":
+											arg_level += 1
+										else:
+											arg_name = arg_name+k
+									if arg_name in symbol_table.declarations:
+										if arg_level == symbol_table.declarations[arg_name][1]:
+											arguments_list.append([symbol_table.declarations[arg_name]])
+										else:
+											error_symbol_table = 1	
+									elif arg_name in global_symbol_table.declarations:
+										if arg_level == global_symbol_table.declarations[arg_name][1]:
+											arguments_list.append([global_symbol_table.declarations[arg_name]])
+										else:
+											error_symbol_table = 1
+									else:
+										error_symbol_table = 1
+								if arguments_list != global_symbol_table.func_dec[i[-1]][2]:
+									error_symbol_table = 1
+							else:
+								error_symbol_table = 1
+						else:
+							error_symbol_table =1
+					elif isinstance(i, int):
+						if condition_type == "":
+							condition_type = "int"
+						elif condition_type != "int":
+							error_symbol_table = 1
+					elif isinstance(i, float):
+						if condition_type =="":
+							condition_type = "float"
+						elif condition_type != "float":
+							error_symbol_table = 1
+					else:
+						var_name = ""
+						var_level = 0
+						var = list(i)
+						for j in var:
+							if j == "*":
+								var_level += 1
+							else:
+								var_name = var_name+j
+						if var_name in symbol_table.declarations:
+							if var_level == symbol_table.declarations[var_name][1]:
+								if condition_type == "":
+									condition_type = symbol_table.declarations[var_name][0]
+								elif condition_type != symbol_table.declarations[var_name][0]:
+									error_symbol_table = 1
+							else:
+								error_symbol_table = 1	
+						elif var_name in global_symbol_table.declarations:
+							if var_level == global_symbol_table.declarations[var_name][1]:
+								if condition_type == "":
+									condition_type = global_symbol_table.declarations[var_name][0]
+								elif condition_type != global_symbol_table.declarations[var_name][0]:
+									error_symbol_table = 1
+							else:
+								error_symbol_table = 1	
+						else:
+							error_symbol_table = 1
+			create_symbol_table(temp[1], symbol_table, "dec_not_allowed")
+
+		if len(temp) == 2:
+			if temp[-1] in global_symbol_table.func_dec:
+
+		# elif len(temp) > 2:
+		# 	if len(temp) == 3:
+		# 		temp2 = list(temp[2])
+		# 		if temp2[0] == "&":
+		# 			rhs = ""
+		# 			for i in temp2:
+		# 				if i != "&":
+		# 					rhs = rhs+i
+		# 			temp3 = list(temp[1])
+		# 			lhs = ""
+		# 			level = 0
+		# 			for i in temp3:
+		# 				if i == "*":
+		# 					level += 1
+		# 				else:
+		# 					lhs = lhs+i
+		# 			# if lhs in symbol_table.declarations and rhs in symbol_table.declarations:
+		# 			# 	if symbol_table.declarations[rhs][1] == 0 and symbol_table.declarations[lhs][1]-level == 1:
+
+
+
+		# 		# if temp2[0] != "*":
+		# 		# 	temp3 = list(temp[2])
+		# 		# 	if temp3[0] == "&":
+		# 		# 		name = ""
+		# 		# 		for i in temp3:
+		# 		# 			if i != "&":
+		# 		# 				name = name+i
+		# 		# 		if name in symbol_table.declarations and temp[1] in symbol_table.declarations:
+		# 		# 			if symbol_table.declarations[name][1] == 0 and :
+		# 		# 				if 
+
+
+
+				
+
 
 def process(data):
 	lex.lex()
@@ -531,16 +761,25 @@ if __name__ == "__main__":
 	process(lines)
 	
 	if settings.error == 0:
-		ast_filename = filename+".ast"
-		print("Successfully parsed!")
-		print("Checkout ast_output.txt for AST")
-		print("Checkout cfg_output.txt for CFG")
-		trees.process_output(settings.output_list, 0)
-		blocks.trim(settings.output_list)
-		settings.output_list.reverse()
-		print(settings.output_to_file, file=open("ast_output.txt", "w"))
-		blocks.create_blocks("assgn", 1, settings.output_list, None)
-		blocks.construct_blocks(settings.blocks)
-		settings.block_output += ('<bb %d>' %(settings.no_blocks+1))+'\n'
-		settings.block_output += "End"
-		print(settings.block_output, file=open("cfg_output.txt", "w"))
+		print(settings.output_list)
+		print(settings.output_list, file=open("temp2", "w"))
+		symbol_table_input = copy.deepcopy(settings.output_list)
+		blocks.trim(symbol_table_input)
+
+		# create_symbol_table(symbol_table_input, global_symbol_table, "dec_allowed")
+		# for key in global_symbol_table.declarations:
+		# 	print([key, global_symbol_table.declarations[key]])
+		# print(symbol_table[0], file=open("temp2", "w"))
+		# ast_filename = filename+".ast"
+		# print("Successfully parsed!")
+		# print("Checkout ast_output.txt for AST")
+		# print("Checkout cfg_output.txt for CFG")
+		# trees.process_output(settings.output_list, 0)
+		# blocks.trim(settings.output_list)
+		# settings.output_list.reverse()
+		# print(settings.output_to_file, file=open("ast_output.txt", "w"))
+		# blocks.create_blocks("assgn", 1, settings.output_list, None)
+		# blocks.construct_blocks(settings.blocks)
+		# settings.block_output += ('<bb %d>' %(settings.no_blocks+1))+'\n'
+		# settings.block_output += "End"
+		# print(settings.block_output, file=open("cfg_output.txt", "w"))
