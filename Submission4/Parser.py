@@ -243,9 +243,14 @@ def p_assgn_expression_pointer(p):
 def p_assgn_expression_name(p):
 	"""
 	assgn : NAME EQUAL and
-		  | NAME EQUAL function_call
 	"""
 	p[0] = [p[2]]+[p[1]]+p[3]
+
+def p_assgn_name_function_call(p):
+	"""
+	assgn : NAME EQUAL function_call
+	"""
+	p[0] = [p[2]]+[p[1]]+[p[3]]
 
 
 def p_assgn_pointer_nt(p):
@@ -553,7 +558,6 @@ def create_symbol_table(input_list, symbol_table, prev):
 										arg_level = arg_level-1
 								arguments_list.append([i[0], arg_level])
 							if arguments_list == symbol_table.func_dec[name][2]:
-								# print("detecting func1")
 								symbol_table.func_def[name] = Symbol_Table()
 								symbol_table.func_def[name].parent = symbol_table
 								symbol_table.func_def[name].level = level
@@ -582,14 +586,11 @@ def create_symbol_table(input_list, symbol_table, prev):
 		# while
 		elif temp[-1] == "while":
 			condition_type = ""
-			print(temp[1])
 			valid, exp_type = exp_type_checking(temp[1], symbol_table)
 			if valid:
 				if exp_type[1] != 0:
-					print("p1")
 					error_symbol_table = 1
 			else:
-				print("p2")
 				error_symbol_table = 1
 			
 			create_symbol_table(temp[0], symbol_table, "dec_not_allowed") 			
@@ -615,15 +616,12 @@ def create_symbol_table(input_list, symbol_table, prev):
 
 		# assignments
 		elif temp[0] == "=":
-			print(temp)
 			condition_type = ""
 			temp.reverse()
 			nothing = temp.pop()
 			lhs = temp.pop()
 			valid_rhs, rhs_exp_type = exp_type_checking(temp, symbol_table)
 			valid_lhs, lhs_exp_type = exp_type_checking([lhs], symbol_table)
-			print(rhs_exp_type)
-			print(lhs_exp_type)
 			if valid_rhs and valid_lhs:
 				if rhs_exp_type != lhs_exp_type:
 					error_symbol_table = 1
@@ -779,9 +777,12 @@ def print_symbol_table():
 	print(border_line)
 	print(border_line)	
 
+
+global symbol_table_output
+symbol_table_output = ""
 def print_symbol_table_v2():
 	global global_symbol_table
-
+	global symbol_table_output
 	# function declarations
 	max_name_width = len("Name")
 	max_return_type_width = len("Return Type")
@@ -806,15 +807,20 @@ def print_symbol_table_v2():
 	max_return_type_width += 3
 	max_parameter_list_width += 3
 	border_line = "-"*(max_name_width+max_return_type_width+max_parameter_list_width+6)
-	print("Procedure table :-")
-	print(border_line)
+	symbol_table_output += "Procedure table :-\n"
+	# print("Procedure table :-")
+	symbol_table_output += border_line+"\n"
+	# print(border_line)
 	i = 0
 	for row in procedure_table:
 		if i == 1:
-			print(border_line)
-		print(row[0]+(max_name_width-len(row[0]))*" "+"|  "+row[1]+(max_return_type_width-len(row[1]))*" "+"|  "+row[2]+(max_parameter_list_width-len(row[2]))*" ")
+			symbol_table_output += border_line+"\n"
+			# print(border_line)
+		symbol_table_output += row[0]+(max_name_width-len(row[0]))*" "+"|  "+row[1]+(max_return_type_width-len(row[1]))*" "+"|  "+row[2]+(max_parameter_list_width-len(row[2]))*" "+"\n"
+		# print(row[0]+(max_name_width-len(row[0]))*" "+"|  "+row[1]+(max_return_type_width-len(row[1]))*" "+"|  "+row[2]+(max_parameter_list_width-len(row[2]))*" ")
 		i += 1
-	print(border_line)
+	symbol_table_output += border_line+"\n"
+	# print(border_line)
 
 	# variable declarations
 	# global declarations
@@ -843,25 +849,23 @@ def print_symbol_table_v2():
 	max_base_type_width += 3
 	max_derived_type_width += 3
 	border_line = "-"*(max_name_width+max_scope_width+max_base_type_width+max_derived_type_width+8)
-	print("Variable table :-")
-	print(border_line)
+	symbol_table_output += "Variable table :-"+"\n"
+	# print("Variable table :-")
+	symbol_table_output += border_line+"\n"
+	# print(border_line)
 	i = 0
 	for row in variable_table:
 		if i == 1:
-			print(border_line)
-		print(row[0]+(max_name_width-len(row[0]))*" "+"|  "+row[1]+(max_scope_width-len(row[1]))*" "+"|  "+row[2]+(max_base_type_width-len(row[2]))*" "+"|  "+row[3]+(max_derived_type_width-len(row[3]))*" ")
+			"Variable table :-"
+			# print(border_line)
+		symbol_table_output += row[0]+(max_name_width-len(row[0]))*" "+"|  "+row[1]+(max_scope_width-len(row[1]))*" "+"|  "+row[2]+(max_base_type_width-len(row[2]))*" "+"|  "+row[3]+(max_derived_type_width-len(row[3]))*" "+"\n"
+		# print(row[0]+(max_name_width-len(row[0]))*" "+"|  "+row[1]+(max_scope_width-len(row[1]))*" "+"|  "+row[2]+(max_base_type_width-len(row[2]))*" "+"|  "+row[3]+(max_derived_type_width-len(row[3]))*" ")
 		i += 1
+	symbol_table_output += border_line+"\n"
+	# print(border_line)
+	symbol_table_output += border_line+"\n"
+	# print(border_line)
 
-	print(border_line)
-	print(border_line)
-
-# def remove_dec(input_list):
-# 	for i in input_list:
-# 		if isinstance(i, (list,)) and len(i) > 0:
-# 			if i[0] == "int" or i[0] == "float":
-# 				input_list.remove(i)
-# 			else:
-# 				remove_dec(i)
 
 def process(data):
 	lex.lex()
@@ -877,21 +881,27 @@ if __name__ == "__main__":
 
 	process(lines)
 	if settings.error == 0:
-		# print(settings.output_list)
-		print(settings.output_list, file=open("temp", "w"))
+		# print(settings.output_list, file=open("temp", "w"))
 		symbol_table_input = copy.deepcopy(settings.output_list)
 		create_ast_input = copy.deepcopy(settings.output_list)
 		create_block_input = copy.deepcopy(settings.output_list)
 		blocks.trim(symbol_table_input)
 		blocks.trim(create_block_input)
 		
-		# create_symbol_table(symbol_table_input, global_symbol_table, "dec_allowed")
-		# # print(error_symbol_table)
-		# if error_symbol_table == 0:
-		# 	print_symbol_table_v2()
-
-		# remove_dec(create_block_input)
-		# print(create_block_input)
+		create_symbol_table(symbol_table_input, global_symbol_table, "dec_allowed")
+		print_symbol_table_v2()
+		ast_filename = filename+".ast"
+		cfg_filename = filename+".cfg"
+		sym_filename = filename+".sym"
+		print("Successfully parsed!")
+		print("Checkout"+ sym_filename+" for Symbol Table")
+		print("Checkout"+ ast_filename+" for AST")
+		print("Checkout"+ cfg_filename+" for CFG")
+		print(symbol_table_output, file=open(sym_filename, "w"))
+		trees.process_output(create_ast_input, 0)
+		print(settings.output_to_file, file=open(ast_filename, "w"))
+		
+		final_cfg_output = ""
 		while len(create_block_input) > 0:
 			settings.blocks = {}
 			settings.block_output = ""
@@ -910,43 +920,7 @@ if __name__ == "__main__":
 				settings.block_output += "function "+func_name+"("+arguments+")\n"
 				blocks.create_blocks("assgn", settings.no_blocks+1, temp[0], None)
 				blocks.construct_blocks(settings.blocks)
-				print(settings.block_output)
-
-
-				# blocks.create_blocks("assgn", settings.no_blocks+1, temp[0], None)
-				# settings.blocks = {}
-				# settings.block_output += ('<bb %d>' %(settings.no_blocks+1))+'\n'
-				# settings.block_output += "End"
-		# print(settings.block_output, file=open("cfg_output.txt", "w"))
-
-
-		# trees.process_output(create_ast_input, 0)
-		# print(settings.output_to_file, file=open("ast_output.txt", "w"))
-
-		# temp = create_block_input.pop()
-		# if len(temp[0]) > 0:
-		# 	blocks.create_blocks("assgn", settings.no_blocks+1, temp[0], None)
-		# 	print(settings.blocks)
-		# print(error_symbol_table)
-		
-		# print(error_symbol_table)
-		# if error_symbol_table != 1:
-			# print_symbol_table()
-			# print_symbol_table_v2()
-
-
-
-
-		# ast_filename = filename+".ast"
-		# print("Successfully parsed!")
-		# print("Checkout ast_output.txt for AST")
-		# print("Checkout cfg_output.txt for CFG")
-		# trees.process_output(settings.output_list, 0)
-		# blocks.trim(settings.output_list)
-		# settings.output_list.reverse()
-		# print(settings.output_to_file, file=open("ast_output.txt", "w"))
-		# blocks.create_blocks("assgn", 1, settings.output_list, None)
-		# blocks.construct_blocks(settings.blocks)
-		# settings.block_output += ('<bb %d>' %(settings.no_blocks+1))+'\n'
-		# settings.block_output += "End"
-		# print(settings.block_output, file=open("cfg_output.txt", "w"))
+				final_cfg_output += settings.block_output + "\n"
+		final_cfg_output += ('<bb %d>' %(settings.no_blocks+1))+'\n'
+		final_cfg_output += "return"
+		print(final_cfg_output, file=open(cfg_filename, "w"))

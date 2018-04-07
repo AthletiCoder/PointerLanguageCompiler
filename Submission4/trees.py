@@ -60,13 +60,10 @@ def process_output(input_list, output_depth):
 						level += 1
 					else:
 						name = name+j
-				# print(name)
 				settings.output_to_file += "FUNCTION "+name+"\n"
 				settings.output_to_file += "PARAMS ("
 				while len(i[1])>0:
-					# print(i[1])
 					argument = i[1].pop()
-					# print(argument[1])
 					argument_name = list(argument[1][0])
 					arg_level = 0
 					for j in argument_name:
@@ -81,7 +78,7 @@ def process_output(input_list, output_depth):
 				settings.output_to_file += ")\n"
 				settings.output_to_file += "RETURNS "+level*"*"+i[-2]+"\n"
 				process_output(i[0], 1)
-			elif i[-1] == "return":
+			elif i[-1] == "return" and len(i[0]) > 0:
 				settings.output_to_file += "RETURN\n(\n"
 				my_tree = Parser.Tree()
 				temp2 = i[0]+[]
@@ -89,6 +86,8 @@ def process_output(input_list, output_depth):
 				add_to_tree(my_tree, temp2, 1)
 				print_parse_tree(my_tree)
 				settings.output_to_file += ")\n"
+			elif i[-1] == "return" and len(i[0]) == 0:
+				settings.output_to_file += "RETURN\n(\n)\n"
 			elif len(i) == 2:
 				temp = output_depth*"\t"
 				settings.output_to_file += temp+"CALL "+i[-1]+"(\n"
@@ -195,16 +194,6 @@ def print_parse_tree(tree):
 		settings.output_to_file += tabs+"CONST("+str(tree.node)+")"+"\n"
 		t = 1
 	elif isinstance(tree.node, (list,)):
-		# print(tree.node)
-		# settings.output_to_file += tabs+"CALL "+tree.node[-1]+"(\n"
-		# while len(tree.node[0]) > 0:
-		# 	# print(tree.node[0])
-		# 	argument = tree.node[0].pop()
-		# 	# print(argument)
-		# 	process_output(argument, tree.depth+1)
-		# 	if len(tree.node[0]) > 0:
-		# 		settings.output_to_file += tabs2+",\n"
-		print(tree.node)
 		process_output([tree.node], tree.depth)
 		t = 1
 	else:
@@ -216,7 +205,6 @@ def print_parse_tree(tree):
 			if t == 0:
 				settings.output_to_file += tabs+'\t'+','+"\n"
 		if tree.lhs is not None:
-			print(tree.lhs.node)
 			print_parse_tree(tree.lhs)
 
 	else:

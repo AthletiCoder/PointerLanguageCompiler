@@ -198,7 +198,6 @@ def create_blocks(prev, current_block, input_list, goto):
 			while len(dfs_list) > 0:
 				temp = dfs_list.pop()
 				if temp.node in settings.condition_symbols:
-					# print("coming")	
 					if temp.rhs.node in settings.condition_symbols or temp.rhs.node == "u-" or temp.rhs.node == "!":
 						dfs_list.append(temp.rhs)
 						right = False
@@ -265,7 +264,6 @@ def create_blocks(prev, current_block, input_list, goto):
 						i.append("t*")
 				settings.blocks[current_block] = [[i[1], "=", i[2]]] + settings.blocks[current_block]
 			else:
-				# print("coming")
 				settings.blocks[current_block] = [[i]] + settings.blocks[current_block]
 			if len(input_list) == 0:
 				if prev == "while" or prev == "ifelse":
@@ -437,15 +435,14 @@ def construct_blocks(l):
 				if isinstance(line[0], (list,)):
 						arguments = ""
 						for arg in line[0][0]:
-							arguments = arg[0] + ", " + arguments
+							arguments = str(arg[0]) + ", " + arguments
 						arguments = arguments[:-2]
 						arguments = ('%s(%s)' %(line[0][1], arguments))
 						line[0] = arguments
 				if isinstance(line[2], (list,)):
-						# line[0] = [[<arguments>], <name>]
 						arguments = ""
 						for arg in line[2][0]:
-							arguments = arg[0] + ", " + arguments
+							arguments = str(arg[0]) + ", " + arguments
 						arguments = arguments[:-2]
 						arguments = ('%s(%s)' %(line[2][1], arguments))
 						line[2] = arguments
@@ -453,7 +450,7 @@ def construct_blocks(l):
 				# line[0] = [[<arguments>], <name>]
 				arguments = ""
 				for arg in line[0][0]:
-					arguments = arg[0] + ", " + arguments
+					arguments = str(arg[0]) + ", " + arguments
 				arguments = arguments[:-2]
 				settings.block_output += ('%s(%s)' %(line[0][1], arguments)) + '\n'
 
